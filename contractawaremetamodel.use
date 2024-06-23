@@ -1,0 +1,865 @@
+model ContractAwareDataProducts
+
+---- Classes
+---- Data Use Case
+
+abstract class Stimuli
+    attributes
+        description: String
+end
+
+class Operational < Stimuli
+end
+
+class Financial < Stimuli
+end
+
+class DataUseCase
+attributes
+    name: String
+end
+
+abstract class Benefit
+    attributes    
+        name: String
+end
+
+class Quantitative < Benefit
+    attributes
+        value: Integer
+        type: String
+    constraints
+        inv cannotBeNegative: value > 0
+end
+
+class Qualitative < Benefit
+    attributes
+        specification: String
+end
+
+abstract class Requirement
+    attributes
+        name: String
+        priority: Integer
+    operations
+        assignTo(uc: DataUseCase)
+end
+
+class Constraint < Requirement
+    attributes
+        type: String
+end
+
+class Functional < Requirement
+end
+
+abstract class NonFunctional < Requirement
+    attributes
+        description: String
+end
+
+class Performance < NonFunctional
+end
+
+class Usability < NonFunctional
+end
+
+class Security < NonFunctional
+    attributes
+        level: Integer
+end
+
+---- Data Product
+
+abstract class DataProduct
+    attributes
+        name: String
+        approvals: Integer init = 0
+        denied: Boolean init = false
+        approved: Boolean init = false
+    operations
+        approveDataProduct()
+        denied()
+        accepted()
+        completed()
+    statemachines
+        psm DataProductApproval
+            states
+                -- start node
+                DataProductCompleted:initial
+                -- initial state after DSDL is handed in
+                hasNoApprovals [approvals = 0 and denied = false and approved = false]
+                -- approval was received from Data Steward
+                hasApprovalFromDataSteward [approvals = 1 and approved = false and denied = false]
+                -- approval was received from Funder
+                hasApprovalFromFunder [approvals = 2 and approved = false and denied = false]
+                -- approval was received from GovernanceBody
+                hasApprovalFromGovernanceBody [approvals = 3 and approved = false and denied = false]
+                -- Data Product is denied by one reviewer, requiring an updated version
+                denied [denied = true]
+                -- enough approvals were received
+                enoughApprovals [approvals = 3 and approved = false and denied = false]
+                -- Data Product is approved
+                approved [approved = true]
+            transitions
+                -- the first state after creation
+                DataProductCompleted -> hasNoApprovals { completed() }
+                -- Data Steward approves Data Product
+                hasNoApprovals -> hasApprovalFromDataSteward { [approvals + 1 < 3] approveDataProduct() }
+                -- Funder approves Data Product
+                hasApprovalFromDataSteward -> hasApprovalFromFunder { [approvals + 1 < 3] approveDataProduct() }
+                -- GovernanceBody approves Data Product
+                hasApprovalFromFunder -> hasApprovalFromGovernanceBody { [approvals + 1 = 3] approveDataProduct() }
+                -- enough approvals were reached
+                hasApprovalFromGovernanceBody -> enoughApprovals { [approvals = 3] accepted()}
+                -- Data Product is accepted
+                enoughApprovals -> approved { [approvals = 3] accepted ()}
+                -- Data Product is denied by one governance role
+                hasNoApprovals -> denied { denied() }
+                hasApprovalFromDataSteward -> denied { denied() }
+                hasApprovalFromFunder -> denied { denied() }
+    end
+end
+
+class SourceAllignedDataProduct < DataProduct
+end
+
+class AggregateDataProduct < DataProduct
+end
+
+class ConsumerAllignedDataProduct < DataProduct
+end
+
+abstract class DataProductAsset
+    attributes
+        name: String
+end
+
+class MLModel < DataProductAsset
+end
+
+class ProductEvent < DataProductAsset
+end
+
+class Dataset < DataProductAsset
+end
+
+abstract class ComputationalPolicy < DataProductAsset
+end
+
+class ProductLevelPolicy < ComputationalPolicy
+end
+
+class OperationLevelPolicy < ComputationalPolicy
+end
+
+class MetaData < DataProductAsset
+end
+
+class DataModel 
+end
+
+class Attribute
+    attributes
+        name: String
+end
+
+class Confidentialty
+attributes
+    level: String
+end
+
+class SemanticMeaning
+attributes
+    meaning: String
+end
+
+abstract class ProductMetaData
+end
+
+class ProductVersion < ProductMetaData
+    attributes    
+        versionNumber: Real
+end
+
+class ProductFormat < ProductMetaData
+    attributes
+        format: String
+end
+
+class ProductOperationalMetaData < ProductMetaData
+end
+
+class Timeliness
+    attributes
+        refreshRate: Integer
+    constraints
+        inv cannotBeNegative: refreshRate > 0
+end
+
+abstract class Port
+    attributes
+        name: String
+end
+
+class ControlPort < Port
+end
+
+class DiscoveryPort < Port
+end
+
+abstract class DataPort < Port
+end
+
+class DataInPort < DataPort
+end
+
+class DataOutPort < DataPort
+end
+
+abstract class Interface 
+    attributes
+        name: String
+end
+
+class ProvidedInterface < Interface
+end
+
+class RequiredInterface < Interface
+end
+
+abstract class Operation
+    attributes
+        name: String
+    operations
+        execute(ac: AccessRule)
+    constraints
+        inv ConsistentAccessRules:
+            let relatedDataProductAssets = self.assetsThatTheOperationConsistsOf in
+            let relatedOperations = Operation.allInstances()->select(op | op.assetsThatTheOperationConsistsOf->exists(dpa | relatedDataProductAssets->includes(dpa))) in
+            relatedOperations->forAll(op1, op2 |
+                op1 <> op2 implies (
+                    (op1.oclIsTypeOf(Input) and op2.oclIsTypeOf(Output) or
+                    op1.oclIsTypeOf(Output) and op2.oclIsTypeOf(Input)) implies
+                    (op1.isRequiredToExecute->forAll(ar1 | op2.isRequiredToExecute->includes(ar1)) and
+                    op2.isRequiredToExecute->forAll(ar2 | op1.isRequiredToExecute->includes(ar2)))
+                )
+            )   
+end
+
+class Input < Operation
+end
+
+class Output < Operation
+end
+
+class Cost
+    attributes
+        amount: Integer
+        unit: String
+    constraints
+        inv cannotBeNegative: amount > 0
+end
+
+class AccessRule < OfferingConstraint
+end
+
+-- Data Product Offering
+
+abstract class OfferingConstraint
+    attributes
+        name: String
+end
+
+class DataType < OfferingConstraint
+    attributes
+        dataType: String
+end
+
+class ResponseRate < OfferingConstraint
+    attributes
+        maximumResponseTime: Integer
+    constraints
+        inv cannotBeNegative: maximumResponseTime > 0
+end
+
+class Anonymization < OfferingConstraint
+    attributes
+        protocol: String
+end
+
+class RateLimit < OfferingConstraint
+    attributes
+        rate: Integer
+    constraints
+        inv cannotBeNegative: rate > 0
+end
+
+class Size < OfferingConstraint
+    attributes
+        size: Integer
+        sizeUnit: String
+    constraints
+        inv cannotBeNegative: size > 0
+end
+
+-- Data Procuct Assurance
+
+class SLA
+end
+
+abstract class SLAParameters
+    attributes
+        name: String
+end
+
+class Latency < SLAParameters
+    attributes
+        ping: Integer
+    constraints
+        inv cannotBeNegative: ping > 0
+end
+
+class Throughput < SLAParameters
+    attributes
+        amount: Integer
+        period: String
+    constraints
+        inv cannotBeNegative: amount > 0
+end
+
+class ResponseTime < SLAParameters
+    attributes
+        amountOfDays: Integer
+    constraints
+        inv cannotBeNegative: amountOfDays > 0
+end
+
+class Availability < SLAParameters
+    attributes
+        uptime: Integer
+    constraints
+        inv cannotBeNegative: uptime > 0
+end
+
+abstract class SupportChannels
+end
+
+class ContactMethods < SupportChannels
+    attributes
+        contactMethod: String
+end
+
+class SupportLevel < SupportChannels
+    attributes
+        levelOfSupport: Integer
+end
+
+class IncidentHandling < SupportChannels
+    attributes
+        handlingDescription: String
+end
+
+class Obligation 
+    attributes
+        name: String
+        description: String
+end
+
+abstract class AutomaticTest
+end
+
+class UnitTest < AutomaticTest
+end
+
+class IntegrationTest < AutomaticTest
+end
+
+-- Access Request
+
+class AccessRequest
+attributes
+    approvals: Integer init = 0
+    approvalsRequired: Integer
+    accepted: Boolean init = false
+    denied: Boolean init = false
+operations
+    approve()
+    decline()
+    accept()
+constraints
+    inv approvalsCannotBeNegative: approvals >= 0
+statemachines
+    psm accessRequest
+        states
+            -- start node
+            requestorRequestsAccess:initial
+            -- initial state after access is requested
+            reasonForDataAccessStated [approvals = 0 and denied = false and accepted = false]
+            -- approval was received from Data Steward
+            hasApprovalFromDataSteward [approvals = 1 and accepted = false and denied = false]
+            -- approval was received from DataOwner
+            hasApprovalFromDataOwner [approvals = 2 and accepted = false and denied = false]
+            -- access request was denied by one reviewer
+            denied [denied = true]
+            -- enough approvals were received
+            enoughApprovals [approvals = approvalsRequired and accepted = false and denied = false]
+            -- access request is approved
+            approved [accepted = true]
+            -- new data usage agreement can be created
+            dataUsageAgreementCreated
+        transitions
+            -- the first state after creation
+            requestorRequestsAccess -> reasonForDataAccessStated
+            -- Data Steward approves Access Request
+            reasonForDataAccessStated -> hasApprovalFromDataSteward { [approvals + 1 < approvalsRequired] approve() }
+            -- GovernanceBody approves Access Request
+            hasApprovalFromDataSteward -> hasApprovalFromDataOwner { [approvals + 1 = approvalsRequired] approve() }
+            -- enough approvals were reached
+            hasApprovalFromDataOwner -> enoughApprovals { [approvals = approvalsRequired] accept()}
+            -- access request is accepted
+            enoughApprovals -> approved { [approvals = approvalsRequired] accept()}
+            -- access request is denied by one governance role
+            reasonForDataAccessStated -> denied { decline() }
+            hasApprovalFromDataSteward -> denied { decline() }
+            -- Data usage agreement can be created
+            approved -> dataUsageAgreementCreated
+    end
+end
+
+class Approval
+end
+
+abstract class Requestor
+    operations
+        requestAccess(uc: DataUseCase, dp: DataProduct)
+
+end
+
+-- Data Usage Agreement
+
+class DataUsageAgreement
+end
+
+abstract class Participant
+end
+
+class Participants
+end
+
+abstract class ActiveParticipant < Participant
+end
+
+abstract class SupportingParticipant < Participant
+end
+
+class Metric
+    attributes
+        name: String
+end
+
+class Function
+end
+
+class MeasurementDirective
+end
+
+class Obligations
+end
+
+abstract class Guarantee
+end
+
+class ServiceLevelObjective < Guarantee
+end
+
+class ActionGuarantee < Guarantee
+end
+
+
+---- Roles
+class ProductOwner < ProductMetaData, Requestor, ActiveParticipant
+    attributes
+        name: String
+        email: String
+    operations
+        refine(requirement: Requirement)
+end
+
+class BusinessAnalyst
+    attributes
+        name: String
+    operations
+        formulate()
+end
+
+abstract class FederatedGovernance < SupportingParticipant
+    attributes
+        name: String
+    operations
+        approveAR(r: AccessRequest)
+        denyAR(r: AccessRequest)
+        createAgreement(ar: AccessRequest)
+        assignAccessRule(ac: AccessRule, d: Developer)
+        approveDataProduct(dp: DataProduct)
+            begin
+                dp.approvals:= dp.approvals + 1
+            end
+            pre: dp.approvals >= 0
+            post: dp.approvals > 0
+        denyDP(dp: DataProduct)
+            begin
+                dp.denied := true
+            end
+end
+
+class Funder < FederatedGovernance
+end
+
+class DataSteward < FederatedGovernance
+end
+
+class DataOwner < FederatedGovernance
+end
+
+class Developer < ActiveParticipant
+    attributes
+        name: String    
+end
+
+class DataCitizen < Requestor, ActiveParticipant
+end
+
+class DevelopmentTeam < ActiveParticipant
+attributes
+    name: String
+end
+
+
+---- associations
+-- Data Use Case
+association Provides between
+    Stimuli [1..*] role provider
+    DataUseCase [*] role isProvided
+end
+
+association ShouldProvide between
+    DataUseCase [1] role shouldProvide
+    Benefit [1..*] role shouldBeProvided
+end
+
+association Has between
+    DataUseCase [1]  role belongsto
+    Requirement[*] role has
+end
+
+association Formulates between
+    BusinessAnalyst [1..*] role formulator
+    Requirement [0..*] role formulated
+end
+
+association Defines between
+    ProductOwner [*] role definer
+    Requirement [*] role isDefined
+end
+
+-- Data Product
+
+association ProducesConsumesOwns between
+    DataProduct [1..*] role producesconsumesowns
+    DataProductAsset [1..*] role isPartOf
+end
+
+association AdheresTo between
+    DataProduct[*] role adheresTo
+    ProductLevelPolicy[*] role isAdheredBy
+end
+
+composition InteractsThrough between
+    DataProduct [1] role isInteractableThrough
+    Port [*] role allowsForInteractionFor
+end
+
+composition Exposes between
+    Port [1] role exposes
+    Interface [1..*] role isExposedBy
+end
+
+composition InterfaceProvides between
+    Interface [1] role interfaceProvides
+    Operation [1..*] role isProvidedByInterface
+end
+
+association Incurs between
+    Operation [*] role incurs
+    Cost [1] role isIncurredBy
+end
+
+association RequiresToExecute between
+    Operation [*] role requiresToExecute
+    AccessRule [*] role isRequiredToExecute
+end
+
+association ConsistsOf between
+    Operation [1..*] role consistsOfDataProductAsset
+    DataProductAsset [*] role assetsThatTheOperationConsistsOf
+end
+
+association HasADegreeOf between
+    DataProductAsset [*] role hasADegreeOf
+    Timeliness [0..1] role describesTheTimelinessOf
+end
+
+association Describes between
+    DataProductAsset[1] role isDescribedBy
+    MetaData [0..1] role describes
+end
+
+association Describes2 between
+    MetaData [1] role isDescribedBy2
+    ProductMetaData [1..*] role describes2
+end
+
+association Describes3 between
+    MetaData [1] role isDescribedBy3
+    DataModel [0..*] role describes3
+end
+
+association SticksTo between
+    DataModel [*] role definesShapeOf
+    Dataset [1] role shapeIsDefinedBy
+end
+
+aggregation ConsistsOutOf between
+    DataModel [1..*]
+    Attribute [*]
+end
+
+association HasALevelOf between
+    Attribute [*]
+    Confidentialty [1]
+end
+
+association HasACorresponding between
+    Attribute [*]
+    SemanticMeaning [1]
+end
+
+association HasALevelOf2 between
+    ProductEvent [*] role hasALevelOf2
+    Confidentialty [1] role isAssignedToEvent
+end
+
+association Follows between
+    OperationLevelPolicy [*] role shouldBeAdheredTo
+    Operation [*] role shouldAdhereTo
+end
+
+-- Data Product Offering
+
+association ApplyToProduct between
+    DataProduct [*] role constraintAppliedToProduct
+    OfferingConstraint [*] role constraintIsAppliedToProduct
+end
+
+association ApplyToOperation between
+    Operation [*] role constraintAppliedToOperation
+    OfferingConstraint [*] role constraintIsAppliedToOperation
+end
+
+-- Data Product Assurance between
+
+association VerifiesAreMet between
+    AutomaticTest [*] role verifiesAreMet
+    SLAParameters [*] role areMetThroughVerification
+end
+
+association Guarantees between
+    DataProductAsset [0..1] role isGuaranteedBy
+    AutomaticTest [*] role guarantees
+end
+
+association EnsuresAreMet between
+    AutomaticTest [*] role ensuresAreMet
+    Obligation [*] role areEnsuredMetBy
+end
+
+association Fullfills between
+    Obligation [*] role areFullfilledBy
+    SLA [1] role fullfills
+end
+
+association HasObligations between
+    DataProduct [1]
+    Obligation [*]
+end
+
+composition SLAPartOfProduct between
+    DataProduct [1]
+    SLA [1]
+end
+
+composition AutomaticTestsArePartOfProduct between
+    DataProduct [1]
+    AutomaticTest [1..*]
+end
+
+aggregation SupportChannelsPartOfSLA between
+    SLA [1]
+    SupportChannels [*]
+end
+
+aggregation SLAParametersPartOfSLA between
+    SLA [1]
+    SLAParameters [*]
+end
+
+-- Access Request
+
+aggregation DataProductPartOfAccessRequest between
+    AccessRequest [*] role request
+    DataProduct [1] role requestedFor
+end
+
+aggregation DataUseCasePartOfAccessRequest between
+    AccessRequest [*] role mentionsDataUseCase
+    DataUseCase [*] role isMentionedInAC
+end
+
+aggregation FederatedGovernancePartOfAccessRequest between
+    AccessRequest [*]
+    FederatedGovernance [*]
+end
+
+aggregation RequestorPartOfAccessRequest between
+    AccessRequest [*] role isTheRequest
+    Requestor [*] role requests
+end
+
+aggregation DeveloperPartOfDevelopmentTeam between
+    DevelopmentTeam [1]
+    Developer [*]
+end
+
+aggregation ProductOwnerPartOfDevelopmentTeam between
+    DevelopmentTeam [1]
+    ProductOwner [1]
+end
+
+association ApprovalGivenFor between
+    AccessRequest [1]
+    Approval [0..2]
+end
+
+association AccessRuleGranted between
+    Developer [*] role isGrantedAccessRule
+    AccessRule [*] role isGrantedToDeveloper
+end
+
+-- Data Usage Agreement
+
+aggregation DataUseCasePartOfDataUsageAgreement between
+    DataUsageAgreement [*]
+    DataUseCase [*]
+end
+
+aggregation ObligationsPartOfDataUsageAgreement between
+    DataUsageAgreement [1]
+    Obligations [*]
+end
+
+aggregation ServiceLevelObjectivePartOfObligations between
+    Obligations [*]
+    ServiceLevelObjective [*]
+end
+
+aggregation ActionGuaranteePartOfObligations between
+    Obligations [*]
+    ActionGuarantee [*]
+end
+
+aggregation DataProductPartOfDataUsageAgreement between
+    DataUsageAgreement [*]
+    DataProduct [*]
+end
+
+association UsedIn between
+    Guarantee [*]
+    SLAParameters [*]
+end
+
+association SLAParameterDefinedBy between
+    SLAParameters [*]
+    Metric [*]
+end
+
+association MeasuredThrough between
+    Metric [1]
+    MeasurementDirective [1]
+end
+
+association MetricUsedIn between
+    Metric [*]
+    Function [*]
+end
+
+aggregation SupportingParticipantsPartOfParticipants between
+    Participants [*] role participants
+    SupportingParticipant [*] role supportingParticipants
+end
+
+aggregation ActiveParticipantPartOfParticipants between
+    Participants [*]
+    ActiveParticipant [*]
+end
+
+association ObligedBy between
+    Participant [*]
+    Guarantee [*]
+end
+
+---- Constraints
+constraints
+
+-- Data Use Case
+
+context BusinessAnalyst::formulate()
+    pre formulatepre: self.isDefined()
+    post requirementFormulated: 
+        (formulated - formulated@pre)->forAll(r | r.oclIsNew())
+    post oneRequirementCreated:
+        (formulated - formulated@pre)->size() = 1
+
+-- Data Product
+
+context Operation::execute(ac: AccessRule)
+    pre operationExists : self.isDefined
+    pre operationPartOfInterface : self.interfaceProvides -> size = 1
+    pre rightAccessRule : self.isRequiredToExecute -> includes(ac)
+
+
+-- Access Request
+
+context Requestor::requestAccess(uc: DataUseCase, dp: DataProduct)
+    pre requestpre: dp.isDefined()
+    pre usecasedefinedpre: uc.isDefined()
+    post requestAccessCreated: 
+        (isTheRequest - isTheRequest@pre)->forAll(r | r.oclIsNew())
+    post requestForDataProductIsCreated:
+        (dp.request - dp.request@pre)->forAll(r | r.oclIsNew())
+    post requestSpecifiesUseCase:
+        (uc.mentionsDataUseCase - uc.mentionsDataUseCase@pre)->forAll(r | r.oclIsNew())
+
+context FederatedGovernance::assignAccessRule(ac: AccessRule, d: Developer)
+    pre federatedGovernanceExists : self.isDefined()
+    pre accessRuleExists : ac.isDefined()
+    pre developerExists : d.isDefined()
+    post developerWasAssigned: d.isGrantedToDeveloper->includes(ac)
+
+-- Data Usage Agreement
+
+context FederatedGovernance::createAgreement(ar: AccessRequest)
+    pre requestpre: ar.isDefined()
+    pre accessRequestApproved: ar.accepted = true
+    post agreementCreated: 
+        (participants - participants@pre)->forAll(r | r.oclIsNew())

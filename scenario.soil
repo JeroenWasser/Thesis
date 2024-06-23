@@ -1,0 +1,1033 @@
+-- Scenario
+
+--Create Federated Governance
+
+!create dataOwner1 : DataOwner
+!create manager :  Funder
+!create informationOwner : DataSteward
+
+!set dataOwner1.name := 'Pete'
+!set manager.name := 'Jane'
+!set informationOwner.name := 'Joe'
+
+-- Supporting Roles
+!create ba : BusinessAnalyst
+!set ba.name := 'Hannah'
+
+--Create Development Team A
+!create po1 : ProductOwner
+!set po1.name := 'Jeremy'
+!set po1.email := 'jeremy@po.com'
+!create dev1A : Developer
+!set dev1A.name := 'Paul'
+!create dev2A : Developer
+!set dev2A.name := 'Lena'
+!create devTeamA : DevelopmentTeam
+!set devTeamA.name := 'Team A'
+!insert (devTeamA, dev1A) into DeveloperPartOfDevelopmentTeam
+!insert (devTeamA, dev2A) into DeveloperPartOfDevelopmentTeam
+!insert (devTeamA, po1) into ProductOwnerPartOfDevelopmentTeam
+
+
+-- Data Use Case: Retrieve and Process Data from Source
+
+!create getAccessToProductData : Operational
+!set getAccessToProductData.description := 'We need to get the data of our products from our customers so we can do stuff with it'
+!create usecase1 : DataUseCase
+!set usecase1.name := 'Get data from source'
+!insert (getAccessToProductData, usecase1) into Provides 
+!create benefit1 : Qualitative
+!set benefit1.name := 'Opportunities'
+!set benefit1.specification := 'More Opportunities For Data'
+!insert (usecase1, benefit1) into ShouldProvide 
+!openter ba formulate()
+!create requirement1 : Security
+!set requirement1.name := 'Data should be confidential'
+!set requirement1.priority := 1
+!set requirement1.level := 2
+!insert (ba, requirement1) into Formulates
+!insert (usecase1, requirement1) into Has
+!opexit
+!openter po1 refine(requirement1)
+!set requirement1.level := 3
+!set requirement1.description := 'company wants us to keep it very secure'
+!opexit
+
+-- Creation of Data Product: Source Data Processor
+
+!create dataProductA : SourceAllignedDataProduct
+!set dataProductA.name := 'Product Source Processor'
+--input
+!create inputPortDPA : DataInPort
+!set inputPortDPA.name := 'Source Data Port'
+!insert (dataProductA, inputPortDPA) into InteractsThrough
+!create sourceInputInterface : RequiredInterface
+!set sourceInputInterface.name := 'Product Source Read Interface'
+!insert (inputPortDPA, sourceInputInterface) into Exposes
+!create inputOperation : Input
+!set inputOperation.name := 'Read Product Source Data'
+!insert (sourceInputInterface, inputOperation) into InterfaceProvides
+!create accessRule1 : AccessRule
+!set accessRule1.name := 'Product Data Access Rule'
+!insert (inputOperation, accessRule1) into RequiresToExecute
+!create costInputOperation : Cost
+!set costInputOperation.amount := 1
+!set costInputOperation.unit := 'euro'
+!insert (inputOperation, costInputOperation) into Incurs
+
+!create productEventAsset : ProductEvent
+!set productEventAsset.name := 'Product Launch Event'
+!create confidentialityLevel : Confidentialty
+!set confidentialityLevel.level := 'top secret'
+!insert (productEventAsset, confidentialityLevel) into HasALevelOf2
+!create productMetaData : MetaData
+!create productVersion : ProductVersion
+!set productVersion.versionNumber := 1
+!insert (productMetaData, productVersion) into Describes2
+!insert (productEventAsset, productMetaData) into Describes
+!insert (inputOperation, productEventAsset) into ConsistsOf
+!insert (dataProductA, productEventAsset) into ProducesConsumesOwns
+
+
+
+--output
+!create outputPortDPA : DataOutPort
+!set outputPortDPA.name := 'Processed Data Port'
+!insert (dataProductA, outputPortDPA) into InteractsThrough
+!create processedDataInterface : ProvidedInterface
+!set processedDataInterface.name := 'Processed Data Write Interface'
+!insert (outputPortDPA, processedDataInterface) into Exposes
+!create outputOperation : Output
+!set outputOperation.name := 'Write Processed Data'
+!insert (processedDataInterface, outputOperation) into InterfaceProvides
+!create accessRule2 : AccessRule
+!set accessRule2.name := 'Processed Data Access Rule'
+!insert (outputOperation, accessRule2) into RequiresToExecute
+!create costOutputOperation : Cost
+!set costOutputOperation.amount := 2
+!set costOutputOperation.unit := 'euro'
+!insert (outputOperation, costOutputOperation) into Incurs
+
+!create productBronzeDataSet : Dataset
+!set productBronzeDataSet.name := 'Bronze Product Data'
+!create dataModelBronzeProduct : DataModel
+!create productName : Attribute
+!create productTemp : Attribute
+!create temp_explanation : SemanticMeaning
+!set temp_explanation.meaning := 'Temperatures are in Celcius' 
+!create name_explanation : SemanticMeaning
+!set name_explanation.meaning := 'Product name'
+!insert (productName, name_explanation) into HasACorresponding
+!insert (productTemp, temp_explanation) into HasACorresponding
+!create confidentialityLevelConfidential : Confidentialty
+!set confidentialityLevelConfidential.level := 'confidential'
+!insert (productName, confidentialityLevelConfidential) into HasALevelOf
+!insert (productTemp, confidentialityLevel) into HasALevelOf
+!insert (dataModelBronzeProduct, productName) into ConsistsOutOf
+!insert (dataModelBronzeProduct, productTemp) into ConsistsOutOf
+!insert (dataModelBronzeProduct, productBronzeDataSet) into SticksTo
+
+!create bronzeProductMetaData : MetaData
+!create bronzeProductVersion : ProductVersion
+!set productVersion.versionNumber := 1
+!insert (bronzeProductMetaData, bronzeProductVersion) into Describes2
+!insert (bronzeProductMetaData, po1) into Describes2
+!insert (bronzeProductMetaData, dataModelBronzeProduct) into Describes3
+
+
+!insert (productBronzeDataSet, bronzeProductMetaData) into Describes
+
+!insert (outputOperation, productBronzeDataSet) into ConsistsOf
+!insert (dataProductA, productBronzeDataSet) into ProducesConsumesOwns
+
+--discovery
+!create discoveryPortA : DiscoveryPort
+!set discoveryPortA.name := 'Discovery Data Port'
+!insert (dataProductA, discoveryPortA) into InteractsThrough
+!create discoveryInterfaceA : ProvidedInterface
+!set discoveryInterfaceA.name := 'Interface for Discovery'
+!insert (discoveryPortA, discoveryInterfaceA) into Exposes
+!create discoveryOutputOperation : Output
+!set discoveryOutputOperation.name := 'show meta data'
+!insert (discoveryInterfaceA, discoveryOutputOperation) into InterfaceProvides
+!create accessRule3 : AccessRule
+!set accessRule3.name := 'Discovery Role'
+!insert (discoveryOutputOperation, accessRule3) into RequiresToExecute
+!create costDiscoveryOperation : Cost
+!set costDiscoveryOperation.amount := 1
+!set costDiscoveryOperation.unit := 'cent'
+!insert (discoveryOutputOperation, costDiscoveryOperation) into Incurs
+!insert (discoveryOutputOperation, productMetaData) into ConsistsOf
+!insert (discoveryOutputOperation, bronzeProductMetaData) into ConsistsOf
+!insert (dataProductA, productMetaData) into ProducesConsumesOwns
+!insert (dataProductA, bronzeProductMetaData) into ProducesConsumesOwns
+
+
+--Data Product Offering
+
+!create anonymizationConstraint : Anonymization
+!set anonymizationConstraint.name := 'No Recognizable Names'
+!set anonymizationConstraint.protocol := 'Hashing'
+!insert (dataProductA, anonymizationConstraint) into ApplyToProduct
+
+
+--Data Product Assurance
+
+!create obligationA : Obligation
+!set obligationA.name := 'ResponsePromise'
+!set obligationA.description := 'We will answer to questions within 5 working days'
+!insert (dataProductA, obligationA) into HasObligations
+
+!create slaForDPA : SLA
+!create responseTimeForDPA : ResponseTime
+!set responseTimeForDPA.amountOfDays := 5
+!create supportLevelForDPA : SupportLevel
+!set supportLevelForDPA.levelOfSupport := 1
+!insert (slaForDPA, supportLevelForDPA) into SupportChannelsPartOfSLA
+!insert (slaForDPA, responseTimeForDPA) into SLAParametersPartOfSLA
+!insert (obligationA, slaForDPA) into Fullfills
+!insert (dataProductA, slaForDPA) into SLAPartOfProduct
+
+!create discoveryIsServingMetaDataTest : IntegrationTest
+!insert (dataProductA, discoveryIsServingMetaDataTest) into AutomaticTestsArePartOfProduct
+!create responseTimeCheck : IntegrationTest
+!insert (dataProductA, responseTimeCheck) into AutomaticTestsArePartOfProduct
+!insert (responseTimeCheck, obligationA) into EnsuresAreMet
+!create bronzeProductDataModelCheck: UnitTest
+!insert (dataProductA, bronzeProductDataModelCheck) into AutomaticTestsArePartOfProduct
+!insert (productBronzeDataSet, bronzeProductDataModelCheck) into Guarantees
+
+-- Approve Data Product
+
+!openter dataProductA approveDataProduct() -- Data Steward approval
+!set dataProductA.approvals := 1
+!opexit
+!openter dataProductA approveDataProduct() -- Funder approval
+!set dataProductA.approvals := 2
+!opexit
+!openter dataProductA approveDataProduct() -- GovernanceBody approval
+!set dataProductA.approvals := 3
+!opexit
+!openter dataProductA accepted()
+!opexit
+!openter dataProductA accepted()
+!set dataProductA.approved := true
+!opexit
+
+
+--Create Development Team B
+!create po2 : ProductOwner
+!set po2.name := 'Paulus'
+!set po2.email := 'Paulus@po.com'
+!create dev1B : Developer
+!set dev1B.name := 'Jurre'
+!create dev2B : Developer
+!set dev2B.name := 'Jara'
+!create devTeamB : DevelopmentTeam
+!set devTeamB.name := 'Team B'
+!insert (devTeamB, dev1B) into DeveloperPartOfDevelopmentTeam
+!insert (devTeamB, dev2B) into DeveloperPartOfDevelopmentTeam
+!insert (devTeamB, po2) into ProductOwnerPartOfDevelopmentTeam
+
+-- Data Use Case: Retrieve and Process Customer Source Data
+
+!create getCustomerSourceData : Operational
+!set getCustomerSourceData.description := 'We need to retrieve and process data from our customers' sources to enhance our services.'
+!create usecase2 : DataUseCase
+!set usecase2.name := 'Get customer source data'
+!insert (getCustomerSourceData, usecase2) into Provides 
+!create benefit2 : Qualitative
+!set benefit2.name := 'Customer Insights'
+!set benefit2.specification := 'Access to valuable insights from customer data.'
+!insert (usecase2, benefit2) into ShouldProvide 
+!openter ba formulate()
+!create requirement2 : Security
+!set requirement2.name := 'Customer data should be treated with confidentiality'
+!set requirement2.priority := 1
+!set requirement2.level := 2
+!insert (ba, requirement2) into Formulates
+!insert (usecase2, requirement2) into Has
+!opexit
+!openter po2 refine(requirement2)
+!set requirement2.level := 3
+!set requirement2.description := 'Enhanced security measures for handling customer data.'
+!opexit
+
+
+-- Creation of Data Product: Customer Data Processor
+
+!create dataProductB : SourceAllignedDataProduct
+!set dataProductB.name := 'Customer Data Processor'
+
+-- Input
+!create inputPortDPB : DataInPort
+!set inputPortDPB.name := 'Customer Data Port'
+!insert (dataProductB, inputPortDPB) into InteractsThrough
+!create customerInputInterface : RequiredInterface
+!set customerInputInterface.name := 'Customer Data Read Interface'
+!insert (inputPortDPB, customerInputInterface) into Exposes
+!create inputOperationB : Input
+!set inputOperationB.name := 'Read Customer Data'
+!insert (customerInputInterface, inputOperationB) into InterfaceProvides
+!create accessRuleB : AccessRule
+!set accessRuleB.name := 'Customer Data Access Rule'
+!insert (inputOperationB, accessRuleB) into RequiresToExecute
+!create costInputOperationB : Cost
+!set costInputOperationB.amount := 1
+!set costInputOperationB.unit := 'euro'
+!insert (inputOperationB, costInputOperationB) into Incurs
+
+!create customerEventAsset : ProductEvent
+!set customerEventAsset.name := 'Customer Launch Event'
+!insert (customerEventAsset, confidentialityLevel) into HasALevelOf2
+!create customerEventMetaData : MetaData
+!create customerVersion : ProductVersion
+!set customerVersion.versionNumber := 4
+!insert (customerEventMetaData, customerVersion) into Describes2
+!insert (customerEventAsset, customerEventMetaData) into Describes
+!insert (inputOperationB, customerEventAsset) into ConsistsOf
+!insert (dataProductB, customerEventAsset) into ProducesConsumesOwns
+
+-- Output
+!create outputPortDPB : DataOutPort
+!set outputPortDPB.name := 'Processed Customer Data Port'
+!insert (dataProductB, outputPortDPB) into InteractsThrough
+!create processedCustomerDataInterface : ProvidedInterface
+!set processedCustomerDataInterface.name := 'Processed Customer Data Write Interface'
+!insert (outputPortDPB, processedCustomerDataInterface) into Exposes
+!create outputOperationB : Output
+!set outputOperationB.name := 'Write Processed Customer Data'
+!insert (processedCustomerDataInterface, outputOperationB) into InterfaceProvides
+!create accessRuleB2 : AccessRule
+!set accessRuleB2.name := 'Processed Customer Data Access Rule'
+!insert (outputOperationB, accessRuleB2) into RequiresToExecute
+!create costOutputOperationB : Cost
+!set costOutputOperationB.amount := 2
+!set costOutputOperationB.unit := 'euro'
+!insert (outputOperationB, costOutputOperationB) into Incurs
+
+!create customerDataSet : Dataset
+!set customerDataSet.name := 'Customer Data'
+!create dataModelCustomer : DataModel
+!create customerName : Attribute
+!create customerEmail : Attribute
+!create customerPhone : Attribute
+!create name_explanation : SemanticMeaning
+!set name_explanation.meaning := 'Customer name'
+!create email_explanation : SemanticMeaning
+!set email_explanation.meaning := 'Customer email address'
+!create phone_explanation : SemanticMeaning
+!set phone_explanation.meaning := 'Customer phone number'
+!insert (customerName, name_explanation) into HasACorresponding
+!insert (customerEmail, email_explanation) into HasACorresponding
+!insert (customerPhone, phone_explanation) into HasACorresponding
+!insert (customerName, confidentialityLevelConfidential) into HasALevelOf
+!insert (customerEmail, confidentialityLevelConfidential) into HasALevelOf
+!insert (customerPhone, confidentialityLevelConfidential) into HasALevelOf
+!insert (dataModelCustomer, customerName) into ConsistsOutOf
+!insert (dataModelCustomer, customerEmail) into ConsistsOutOf
+!insert (dataModelCustomer, customerPhone) into ConsistsOutOf
+!insert (dataModelCustomer, customerDataSet) into SticksTo
+
+
+!create customerMetaData : MetaData
+!create customerDataVersion : ProductVersion
+!set customerDataVersion.versionNumber := 2
+!insert (customerMetaData, customerDataVersion) into Describes2
+!insert (customerMetaData, po2) into Describes2
+!insert (customerMetaData, dataModelCustomer) into Describes3
+
+!insert (customerDataSet, customerMetaData) into Describes
+!insert (outputOperationB, customerDataSet) into ConsistsOf
+!insert (dataProductB, customerDataSet) into ProducesConsumesOwns
+
+-- Discovery
+!create discoveryPortB : DiscoveryPort
+!set discoveryPortB.name := 'Discovery Customer Data Port'
+!insert (dataProductB, discoveryPortB) into InteractsThrough
+!create discoveryInterfaceB : ProvidedInterface
+!set discoveryInterfaceB.name := 'Interface for Customer Data Discovery'
+!insert (discoveryPortB, discoveryInterfaceB) into Exposes
+!create discoveryOutputOperationB : Output
+!set discoveryOutputOperationB.name := 'Show Customer Data Metadata'
+!insert (discoveryInterfaceB, discoveryOutputOperationB) into InterfaceProvides
+!create accessRuleB3 : AccessRule
+!set accessRuleB3.name := 'Discovery Role for Customer Data'
+!insert (discoveryOutputOperationB, accessRuleB3) into RequiresToExecute
+!create costDiscoveryOperationB : Cost
+!set costDiscoveryOperationB.amount := 1
+!set costDiscoveryOperationB.unit := 'cent'
+!insert (discoveryOutputOperationB, costDiscoveryOperationB) into Incurs
+!insert (discoveryOutputOperationB, customerMetaData) into ConsistsOf
+!insert (discoveryOutputOperationB, customerEventMetaData) into ConsistsOf
+!insert (dataProductB, customerMetaData) into ProducesConsumesOwns
+!insert (dataProductB, customerEventMetaData) into ProducesConsumesOwns
+
+
+-- Data Product Offering
+!create anonymizationConstraintB : Anonymization
+!set anonymizationConstraintB.name := 'Anonymize Customer Data'
+!set anonymizationConstraintB.protocol := 'Encryption'
+!insert (dataProductB, anonymizationConstraintB) into ApplyToProduct
+
+-- Data Product Assurance
+!create obligationB : Obligation
+!set obligationB.name := 'Response Promise for Customer Data'
+!set obligationB.description := 'Respond to customer queries within 3 working days.'
+!insert (dataProductB, obligationB) into HasObligations
+
+!create slaForDPB : SLA
+!create responseTimeForDPB : ResponseTime
+!set responseTimeForDPB.amountOfDays := 3
+!create supportLevelForDPB : SupportLevel
+!set supportLevelForDPB.levelOfSupport := 1
+!insert (slaForDPB, supportLevelForDPB) into SupportChannelsPartOfSLA
+!insert (slaForDPB, responseTimeForDPB) into SLAParametersPartOfSLA
+!insert (obligationB, slaForDPB) into Fullfills
+!insert (dataProductB, slaForDPB) into SLAPartOfProduct
+
+!create responseTimeCheckB : IntegrationTest
+!insert (dataProductB, responseTimeCheckB) into AutomaticTestsArePartOfProduct
+!insert (responseTimeCheckB, obligationB) into EnsuresAreMet
+!create customerDatasetCheck: UnitTest
+!insert (dataProductB, customerDatasetCheck) into AutomaticTestsArePartOfProduct
+!insert (customerDataSet, customerDatasetCheck) into Guarantees
+
+
+-- Approve Data Product
+!openter dataProductB approveDataProduct() -- Data Steward approval
+!set dataProductB.approvals := 1
+!opexit
+!openter dataProductB approveDataProduct() -- Funder approval
+!set dataProductB.approvals := 2
+!opexit
+!openter dataProductB approveDataProduct() -- GovernanceBody approval
+!set dataProductB.approvals := 3
+!opexit
+!openter dataProductB accepted()
+!opexit
+!openter dataProductB accepted()
+!set dataProductB.approved := true
+!opexit
+
+
+--Create Development Team C
+!create po3 : ProductOwner
+!set po3.name := 'Uthred'
+!set po3.email := 'Uthred@po.com'
+!create dev1C : Developer
+!set dev1C.name := 'Isma'
+!create dev2C : Developer
+!set dev2C.name := 'Tineke'
+!create devTeamC : DevelopmentTeam
+!set devTeamC.name := 'Team C'
+!insert (devTeamC, dev1C) into DeveloperPartOfDevelopmentTeam
+!insert (devTeamC, dev2C) into DeveloperPartOfDevelopmentTeam
+!insert (devTeamC, po3) into ProductOwnerPartOfDevelopmentTeam
+
+-- Data Use Case: Aggregate Specific Product Info
+
+!create aggregateProductData : Operational
+!set aggregateProductData.description := 'We can get better info if we aggregate it.'
+!create usecase3 : DataUseCase
+!set usecase3.name := 'Aggregate all info for products'
+!insert (aggregateProductData, usecase3) into Provides 
+!create benefit3 : Quantitative
+!set benefit3.name := 'Customer Insights'
+!set benefit3.value := 1000
+!set benefit3.type := 'USD'
+
+!insert (usecase3, benefit3) into ShouldProvide 
+!openter ba formulate()
+!create requirement3 : Functional
+!set requirement3.name := 'Data should be grouped per product type'
+!set requirement3.priority := 1
+!insert (ba, requirement3) into Formulates
+!insert (usecase3, requirement3) into Has
+!opexit
+!openter po3 refine(requirement3)
+!set requirement3.priority := 2
+!opexit
+
+-- Request Access to Data Product A
+
+!create acForDPA : AccessRequest
+!set acForDPA.approvalsRequired := 2
+!insert (acForDPA, dataProductA) into DataProductPartOfAccessRequest
+!insert (acForDPA, usecase3) into DataUseCasePartOfAccessRequest
+!insert (acForDPA, po3) into RequestorPartOfAccessRequest
+
+-- Approve Access Request
+
+!openter dataOwner1 approveAR(acForDPA)
+!create approvalForAC1 : Approval
+!insert (acForDPA, approvalForAC1) into ApprovalGivenFor
+!insert (acForDPA, dataOwner1) into FederatedGovernancePartOfAccessRequest
+!opexit
+!openter acForDPA approve()
+!set acForDPA.approvals := 1
+!opexit
+!openter informationOwner approveAR(acForDPA)
+!create approvalForAC2 : Approval
+!insert (acForDPA, approvalForAC2) into ApprovalGivenFor
+!insert (acForDPA, informationOwner) into FederatedGovernancePartOfAccessRequest
+!opexit
+!openter acForDPA approve()
+!set acForDPA.approvals := 2
+!opexit
+!openter acForDPA accept()
+!set acForDPA.approvals := 2
+!opexit
+!openter acForDPA accept()
+!set acForDPA.accepted := true
+!opexit
+
+-- Create Data Usage Agreement for Data Product A and Team C
+
+!create dataUsageAgreement1 : DataUsageAgreement
+!insert (dataUsageAgreement1, usecase3) into DataUseCasePartOfDataUsageAgreement
+!insert (dataUsageAgreement1, dataProductA) into DataProductPartOfDataUsageAgreement
+!create participantsForDUA1 : Participants
+!insert (participantsForDUA1, dataOwner1) into SupportingParticipantsPartOfParticipants
+!insert (participantsForDUA1, informationOwner) into SupportingParticipantsPartOfParticipants
+!insert (participantsForDUA1, manager) into SupportingParticipantsPartOfParticipants
+
+!insert (participantsForDUA1, po1) into ActiveParticipantPartOfParticipants
+!insert (participantsForDUA1, po3) into ActiveParticipantPartOfParticipants
+!insert (participantsForDUA1, devTeamC) into ActiveParticipantPartOfParticipants
+
+-- Grant Correct Access Rules to Developers of Team C
+
+!openter dataOwner1 assignAccessRule(accessRule2, dev1C)
+!insert (dev1C, accessRule2) into AccessRuleGranted
+!opexit
+!openter dataOwner1 assignAccessRule(accessRule2, dev2C)
+!insert (dev2C, accessRule2) into AccessRuleGranted
+!opexit
+
+-- Creation of Data Product: Data Product Aggregator
+
+!create dataProductC : AggregateDataProduct
+!set dataProductC.name := 'Product Data Aggregator'
+
+-- Input
+!create inputPortDPC : DataInPort
+!set inputPortDPC.name := 'Product Data Port'
+!insert (dataProductC, inputPortDPC) into InteractsThrough
+!create productInputInterface : RequiredInterface
+!set productInputInterface.name := 'Product Data Read Interface'
+!insert (inputPortDPC, productInputInterface) into Exposes
+!create inputOperationC : Input
+!set inputOperationC.name := 'Read Product Data'
+!insert (productInputInterface, inputOperationC) into InterfaceProvides
+!insert (inputOperationC, accessRule2) into RequiresToExecute
+!create costInputOperationC : Cost
+!set costInputOperationC.amount := 1
+!set costInputOperationC.unit := 'euro'
+!insert (inputOperationC, costInputOperationC) into Incurs
+
+!insert (inputOperationC, productBronzeDataSet) into ConsistsOf
+!insert (dataProductC, productBronzeDataSet) into ProducesConsumesOwns
+
+-- Output
+!create outputPortDPC : DataOutPort
+!set outputPortDPC.name := 'Aggregated Producer Data Port'
+!insert (dataProductC, outputPortDPC) into InteractsThrough
+!create aggregatedProductDataInterface : ProvidedInterface
+!set aggregatedProductDataInterface.name := 'Aggregated Product Data Interface'
+!insert (outputPortDPC, aggregatedProductDataInterface) into Exposes
+!create outputOperationC : Output
+!set outputOperationC.name := 'Write Processed Customer Data'
+!insert (aggregatedProductDataInterface, outputOperationC) into InterfaceProvides
+!create accessRuleC2 : AccessRule
+!set accessRuleC2.name := 'Aggregated Product Data Access Rule'
+!insert (outputOperationC, accessRuleC2) into RequiresToExecute
+!create costOutputOperationC : Cost
+!set costOutputOperationC.amount := 2
+!set costOutputOperationC.unit := 'euro'
+!insert (outputOperationC, costOutputOperationC) into Incurs
+
+!create aggregatedProductDataSet : Dataset
+!set aggregatedProductDataSet.name := 'Aggregated Product Data'
+!create dataModelAggregatedProduct : DataModel
+!create productGroupName : Attribute
+!create avgTemp : Attribute
+!create group_name_explanation : SemanticMeaning
+!set group_name_explanation.meaning := 'type of Product name'
+!create avgTemp_explanation : SemanticMeaning
+!set avgTemp_explanation.meaning := 'Average of all temperatures in the group in Celcius'
+
+!insert (productGroupName, group_name_explanation) into HasACorresponding
+!insert (avgTemp, avgTemp_explanation) into HasACorresponding
+!insert (productGroupName, confidentialityLevelConfidential) into HasALevelOf
+!insert (avgTemp, confidentialityLevelConfidential) into HasALevelOf
+!insert (dataModelAggregatedProduct, productGroupName) into ConsistsOutOf
+!insert (dataModelAggregatedProduct, avgTemp) into ConsistsOutOf
+!insert (dataModelAggregatedProduct, aggregatedProductDataSet) into SticksTo
+
+!create aggregatedProductMetaData : MetaData
+!create aggregatedProductDataVersion : ProductVersion
+!set aggregatedProductDataVersion.versionNumber := 1
+!insert (aggregatedProductMetaData, aggregatedProductDataVersion) into Describes2
+!insert (aggregatedProductMetaData, po3) into Describes2
+!insert (aggregatedProductMetaData, dataModelAggregatedProduct) into Describes3
+
+!insert (aggregatedProductDataSet, aggregatedProductMetaData) into Describes
+!insert (outputOperationC, aggregatedProductDataSet) into ConsistsOf
+!insert (dataProductC, aggregatedProductDataSet) into ProducesConsumesOwns
+
+-- Discovery
+!create discoveryPortC : DiscoveryPort
+!set discoveryPortC.name := 'Discovery Aggregated Product Data Port'
+!insert (dataProductC, discoveryPortC) into InteractsThrough
+!create discoveryInterfaceC : ProvidedInterface
+!set discoveryInterfaceC.name := 'Interface for Aggregated Product Data Discovery'
+!insert (discoveryPortC, discoveryInterfaceC) into Exposes
+!create discoveryOutputOperationC : Output
+!set discoveryOutputOperationC.name := 'Show Aggregated Product Data Metadata'
+!insert (discoveryInterfaceC, discoveryOutputOperationC) into InterfaceProvides
+!create accessRuleC3 : AccessRule
+!set accessRuleC3.name := 'Discovery Role for Aggregated Product Data'
+!insert (discoveryOutputOperationC, accessRuleC3) into RequiresToExecute
+!create costDiscoveryOperationC : Cost
+!set costDiscoveryOperationC.amount := 1
+!set costDiscoveryOperationC.unit := 'cent'
+!insert (discoveryOutputOperationC, costDiscoveryOperationC) into Incurs
+!insert (discoveryOutputOperationC, aggregatedProductMetaData) into ConsistsOf
+!insert (dataProductC, aggregatedProductMetaData) into ProducesConsumesOwns
+
+-- Data Product Offering
+!create RateLimitConstraintC : RateLimit
+!set RateLimitConstraintC.name := 'Rate Limiter'
+!set RateLimitConstraintC.rate := 100
+!insert (dataProductC, RateLimitConstraintC) into ApplyToProduct
+
+-- Data Product Assurance
+!create obligationC : Obligation
+!set obligationC.name := 'Response Promise for Aggregated Product Data'
+!set obligationC.description := 'Respond to product queries within 5 working days.'
+!insert (dataProductC, obligationC) into HasObligations
+
+!create slaForDPC : SLA
+!create responseTimeForDPC : ResponseTime
+!set responseTimeForDPC.amountOfDays := 5
+!create supportLevelForDPC : SupportLevel
+!set supportLevelForDPC.levelOfSupport := 2
+!insert (slaForDPC, supportLevelForDPC) into SupportChannelsPartOfSLA
+!insert (slaForDPC, responseTimeForDPC) into SLAParametersPartOfSLA
+!insert (obligationC, slaForDPC) into Fullfills
+!insert (dataProductC, slaForDPC) into SLAPartOfProduct
+
+!create responseTimeCheckC : IntegrationTest
+!insert (dataProductC, responseTimeCheckC) into AutomaticTestsArePartOfProduct
+!insert (responseTimeCheckC, obligationC) into EnsuresAreMet
+!create aggregatedProductDatasetCheck: UnitTest
+!insert (dataProductC, aggregatedProductDatasetCheck) into AutomaticTestsArePartOfProduct
+!insert (aggregatedProductDataSet, aggregatedProductDatasetCheck) into Guarantees
+
+
+-- Approve Data Product
+!openter dataProductC approveDataProduct() -- Data Steward approval
+!set dataProductC.approvals := 1
+!opexit
+!openter dataProductC approveDataProduct() -- Funder approval
+!set dataProductC.approvals := 2
+!opexit
+!openter dataProductC approveDataProduct() -- GovernanceBody approval
+!set dataProductC.approvals := 3
+!opexit
+!openter dataProductC accepted()
+!opexit
+!openter dataProductC accepted()
+!set dataProductC.approved := true
+!opexit
+
+
+--Create Development Team D
+!create po4 : ProductOwner
+!set po4.name := 'Marcel'
+!set po4.email := 'Marcel@po.com'
+!create dev1D : Developer
+!set dev1D.name := 'Janos'
+!create dev2D : Developer
+!set dev2D.name := 'Bart'
+!create devTeamD : DevelopmentTeam
+!set devTeamD.name := 'Team D'
+!insert (devTeamD, dev1D) into DeveloperPartOfDevelopmentTeam
+!insert (devTeamD, dev2D) into DeveloperPartOfDevelopmentTeam
+!insert (devTeamD, po4) into ProductOwnerPartOfDevelopmentTeam
+
+
+-- Data Use Case: Aggregate Specific Product Info
+
+!create sellProductInsights : Financial
+!set sellProductInsights.description := 'We will process all our data and sell it'
+!create usecase4 : DataUseCase
+!set usecase4.name := 'Sell Product Insights'
+!insert (sellProductInsights, usecase4) into Provides 
+!create benefit4 : Quantitative
+!set benefit4.name := 'Sale of Product Insights'
+!set benefit4.value := 100000
+!set benefit4.type := 'USD'
+
+!insert (usecase4, benefit4) into ShouldProvide 
+!openter ba formulate()
+!create requirement4 : Functional
+!set requirement4.name := 'Insights need to be linked to product'
+!set requirement3.priority := 4
+!insert (ba, requirement4) into Formulates
+!insert (usecase4, requirement4) into Has
+!opexit
+!openter po4 refine(requirement4)
+!set requirement3.priority := 3
+!opexit
+
+-- Request Access to Data Product A for Dev Team D
+
+!create acForDPA2 : AccessRequest
+!set acForDPA2.approvalsRequired := 2
+!insert (acForDPA2, dataProductA) into DataProductPartOfAccessRequest
+!insert (acForDPA2, usecase4) into DataUseCasePartOfAccessRequest
+!insert (acForDPA2, po4) into RequestorPartOfAccessRequest
+
+-- Approve Access Request
+
+!openter dataOwner1 approveAR(acForDPA2)
+!create approvalForACDA1 : Approval
+!insert (acForDPA2, approvalForACDA1) into ApprovalGivenFor
+!insert (acForDPA2, dataOwner1) into FederatedGovernancePartOfAccessRequest
+!opexit
+!openter acForDPA2 approve()
+!set approvalForACDA1.approvals := 1
+!opexit
+!openter informationOwner approveAR(acForDPA2)
+!create approvalForACDA1 : Approval
+!insert (acForDPA2, approvalForACDA1) into ApprovalGivenFor
+!insert (acForDPA2, informationOwner) into FederatedGovernancePartOfAccessRequest
+!opexit
+!openter acForDPA2 approve()
+!set acForDPA2.approvals := 2
+!opexit
+!openter acForDPA2 accept()
+!set acForDPA2.approvals := 2
+!opexit
+!openter acForDPA2 accept()
+!set acForDPA2.accepted := true
+!opexit
+
+-- Create Data Usage Agreement for Data Product A and Team D
+
+!create dataUsageAgreementA2 : DataUsageAgreement
+!insert (dataUsageAgreementA2, usecase4) into DataUseCasePartOfDataUsageAgreement
+!insert (dataUsageAgreementA2, dataProductA) into DataProductPartOfDataUsageAgreement
+!create participantsForDUA2 : Participants
+!insert (participantsForDUA2, dataOwner1) into SupportingParticipantsPartOfParticipants
+!insert (participantsForDUA2, informationOwner) into SupportingParticipantsPartOfParticipants
+!insert (participantsForDUA2, manager) into SupportingParticipantsPartOfParticipants
+
+!insert (participantsForDUA2, po1) into ActiveParticipantPartOfParticipants
+!insert (participantsForDUA2, po4) into ActiveParticipantPartOfParticipants
+!insert (participantsForDUA2, devTeamD) into ActiveParticipantPartOfParticipants
+
+-- Grant Correct Access Rules to Developers of Team C
+
+!openter dataOwner1 assignAccessRule(accessRule2, dev1D)
+!insert (dev1D, accessRule2) into AccessRuleGranted
+!opexit
+!openter dataOwner1 assignAccessRule(accessRule2, dev2D)
+!insert (dev2D, accessRule2) into AccessRuleGranted
+!opexit
+
+-- Request Access to Data Product B for Dev Team D
+
+!create acForDPB2 : AccessRequest
+!set acForDPB2.approvalsRequired := 2
+!insert (acForDPB2, dataProductB) into DataProductPartOfAccessRequest
+!insert (acForDPB2, usecase4) into DataUseCasePartOfAccessRequest
+!insert (acForDPB2, po4) into RequestorPartOfAccessRequest
+
+-- Approve Access Request
+
+!openter dataOwner1 approveAR(acForDPB2)
+!create approvalForACDB1 : Approval
+!insert (acForDPB2, approvalForACDB1) into ApprovalGivenFor
+!insert (acForDPB2, dataOwner1) into FederatedGovernancePartOfAccessRequest
+!opexit
+!openter acForDPB2 approve()
+!set acForDPB2.approvals := 1
+!opexit
+!openter informationOwner approveAR(acForDPB2)
+!create approvalForACDB2 : Approval
+!insert (acForDPB2, approvalForACDB2) into ApprovalGivenFor
+!insert (acForDPB2, informationOwner) into FederatedGovernancePartOfAccessRequest
+!opexit
+!openter acForDPB2 approve()
+!set acForDPB2.approvals := 2
+!opexit
+!openter acForDPB2 accept()
+!set acForDPB2.approvals := 2
+!opexit
+!openter acForDPB2 accept()
+!set acForDPB2.accepted := true
+!opexit
+
+-- Create Data Usage Agreement for Data Product A and Team D
+
+!create dataUsageAgreementB1 : DataUsageAgreement
+!insert (dataUsageAgreementB1, usecase4) into DataUseCasePartOfDataUsageAgreement
+!insert (dataUsageAgreementB1, dataProductB) into DataProductPartOfDataUsageAgreement
+!create participantsForDUB1 : Participants
+!insert (participantsForDUB1, dataOwner1) into SupportingParticipantsPartOfParticipants
+!insert (participantsForDUB1, informationOwner) into SupportingParticipantsPartOfParticipants
+!insert (participantsForDUB1, manager) into SupportingParticipantsPartOfParticipants
+
+!insert (participantsForDUB1, po2) into ActiveParticipantPartOfParticipants
+!insert (participantsForDUB1, po4) into ActiveParticipantPartOfParticipants
+!insert (participantsForDUB1, devTeamD) into ActiveParticipantPartOfParticipants
+
+-- Grant Correct Access Rules to Developers of Team C
+
+!openter dataOwner1 assignAccessRule(accessRule2, dev1D)
+!insert (dev1D, accessRuleB2) into AccessRuleGranted
+!opexit
+!openter dataOwner1 assignAccessRule(accessRule2, dev2D)
+!insert (dev2D, accessRuleB2) into AccessRuleGranted
+!opexit
+
+-- Request Access to Data Product C for Dev Team D
+
+!create acForDPC1 : AccessRequest
+!set acForDPC1.approvalsRequired := 2
+!insert (acForDPC1, dataProductC) into DataProductPartOfAccessRequest
+!insert (acForDPC1, usecase4) into DataUseCasePartOfAccessRequest
+!insert (acForDPC1, po4) into RequestorPartOfAccessRequest
+
+-- Approve Access Request
+
+!openter dataOwner1 approveAR(acForDPB2)
+!create approvalForACDC1 : Approval
+!insert (acForDPC1, approvalForACDC1) into ApprovalGivenFor
+!insert (acForDPC1, dataOwner1) into FederatedGovernancePartOfAccessRequest
+!opexit
+!openter acForDPC1 approve()
+!set acForDPC1.approvals := 1
+!opexit
+!openter informationOwner approveAR(acForDPC1)
+!create approvalForACDC2 : Approval
+!insert (acForDPC1, approvalForACDC2) into ApprovalGivenFor
+!insert (acForDPC1, informationOwner) into FederatedGovernancePartOfAccessRequest
+!opexit
+!openter acForDPC1 approve()
+!set acForDPC1.approvals := 2
+!opexit
+!openter acForDPC1 accept()
+!set acForDPC1.approvals := 2
+!opexit
+!openter acForDPC1 accept()
+!set acForDPC1.accepted := true
+!opexit
+
+-- Create Data Usage Agreement for Data Product A and Team D
+
+!create dataUsageAgreementC1 : DataUsageAgreement
+!insert (dataUsageAgreementC1, usecase4) into DataUseCasePartOfDataUsageAgreement
+!insert (dataUsageAgreementC1, dataProductC) into DataProductPartOfDataUsageAgreement
+!create participantsForDUC1 : Participants
+!insert (participantsForDUC1, dataOwner1) into SupportingParticipantsPartOfParticipants
+!insert (participantsForDUC1, informationOwner) into SupportingParticipantsPartOfParticipants
+!insert (participantsForDUC1, manager) into SupportingParticipantsPartOfParticipants
+
+!insert (participantsForDUC1, po3) into ActiveParticipantPartOfParticipants
+!insert (participantsForDUC1, po4) into ActiveParticipantPartOfParticipants
+!insert (participantsForDUC1, devTeamD) into ActiveParticipantPartOfParticipants
+
+-- Grant Correct Access Rules to Developers of Team C
+
+!openter dataOwner1 assignAccessRule(accessRule2, dev1D)
+!insert (dev1D, accessRuleC2) into AccessRuleGranted
+!opexit
+!openter dataOwner1 assignAccessRule(accessRule2, dev2D)
+!insert (dev2D, accessRuleC2) into AccessRuleGranted
+!opexit
+
+-- Creation of Data Product: DataProduct360
+
+!create dataProductD : ConsumerAllignedDataProduct
+!set dataProductD.name := 'Product360'
+
+-- Input for Data Product A
+!create inputPortDPD : DataInPort
+!set inputPortDPD.name := 'Raw Product Data Port'
+!insert (dataProductD, inputPortDPD) into InteractsThrough
+!create rawProductInputInterface : RequiredInterface
+!set rawProductInputInterface.name := 'Raw Product Data Read Interface'
+!insert (inputPortDPD, rawProductInputInterface) into Exposes
+!create inputOperationD : Input
+!set inputOperationD.name := 'Read Raw Product Data'
+!insert (rawProductInputInterface, inputOperationD) into InterfaceProvides
+!insert (inputOperationD, accessRule2) into RequiresToExecute
+!create costInputOperationD : Cost
+!set costInputOperationD.amount := 1
+!set costInputOperationD.unit := 'euro'
+!insert (inputOperationD, costInputOperationD) into Incurs
+
+!insert (inputOperationD, productBronzeDataSet) into ConsistsOf
+!insert (dataProductD, productBronzeDataSet) into ProducesConsumesOwns
+
+-- Input for Data Product B
+!create inputPortDPD2 : DataInPort
+!set inputPortDPD2.name := 'Raw Customer Data Port'
+!insert (dataProductD, inputPortDPD2) into InteractsThrough
+!create rawCustomerInputInterface : RequiredInterface
+!set rawCustomerInputInterface.name := 'Raw Customer Data Read Interface'
+!insert (inputPortDPD2, rawCustomerInputInterface) into Exposes
+!create inputOperationD2 : Input
+!set inputOperationD2.name := 'Read Raw Customer Data'
+!insert (rawCustomerInputInterface, inputOperationD2) into InterfaceProvides
+!insert (inputOperationD2, accessRuleB2) into RequiresToExecute
+!create costInputOperationD2 : Cost
+!set costInputOperationD2.amount := 1
+!set costInputOperationD2.unit := 'euro'
+!insert (inputOperationD2, costInputOperationD2) into Incurs
+
+!insert (inputOperationD2, customerDataSet) into ConsistsOf
+!insert (dataProductD, customerDataSet) into ProducesConsumesOwns
+
+-- Input for Data Product C
+!create inputPortDPD3 : DataInPort
+!set inputPortDPD3.name := 'Grouped Product Data Port'
+!insert (dataProductD, inputPortDPD3) into InteractsThrough
+!create groupedProductInputInterface : RequiredInterface
+!set groupedProductInputInterface.name := 'Grouped Product Data Read Interface'
+!insert (inputPortDPD3, groupedProductInputInterface) into Exposes
+!create inputOperationD3 : Input
+!set inputOperationD3.name := 'Read Grouped Product Data'
+!insert (groupedProductInputInterface, inputOperationD3) into InterfaceProvides
+!insert (inputOperationD3, accessRuleC2) into RequiresToExecute
+!create costInputOperationD3 : Cost
+!set costInputOperationD3.amount := 1
+!set costInputOperationD3.unit := 'euro'
+!insert (inputOperationD3, costInputOperationD3) into Incurs
+
+!insert (inputOperationD3, aggregatedProductDataSet) into ConsistsOf
+!insert (dataProductD, aggregatedProductDataSet) into ProducesConsumesOwns
+
+-- Output
+!create outputPortDPD : DataOutPort
+!set outputPortDPD.name := 'Product 360 Port'
+!insert (dataProductD, outputPortDPD) into InteractsThrough
+!create Product360DataInterface : ProvidedInterface
+!set Product360DataInterface.name := 'Product 360 Interface'
+!insert (outputPortDPD, Product360DataInterface) into Exposes
+!create outputOperationD : Output
+!set outputOperationD.name := 'Serve Product360'
+!insert (Product360DataInterface, outputOperationD) into InterfaceProvides
+!create accessRuleD2 : AccessRule
+!set accessRuleD2.name := 'Product 360 Data Access Rule'
+!insert (outputOperationD, accessRuleD2) into RequiresToExecute
+!create costOutputOperationD : Cost
+!set costOutputOperationD.amount := 2
+!set costOutputOperationD.unit := 'euro'
+!insert (outputOperationD, costOutputOperationD) into Incurs
+
+!create Product360 : Dataset
+!set Product360.name := 'Product360'
+!create product360Model : DataModel
+!create product360GroupName : Attribute
+!create p360avgTemp : Attribute
+!create p360customerName : Attribute
+!create p360_group_name_explanation : SemanticMeaning
+!set p360_group_name_explanation.meaning := 'type of Product name'
+!create p360_avgTemp_explanation : SemanticMeaning
+!set p360_avgTemp_explanation.meaning := 'Average of all temperatures in the group in Celcius'
+!create p360_customer_explanation : SemanticMeaning
+!set p360_customer_explanation.meaning := 'Biggest customer of the group'
+
+!insert (product360GroupName, p360_group_name_explanation) into HasACorresponding
+!insert (p360avgTemp, p360_avgTemp_explanation) into HasACorresponding
+!insert (p360customerName, p360_customer_explanation) into HasACorresponding
+!insert (product360GroupName, confidentialityLevelConfidential) into HasALevelOf
+!insert (p360avgTemp, confidentialityLevelConfidential) into HasALevelOf
+!insert (p360customerName, confidentialityLevelConfidential) into HasALevelOf
+
+!insert (product360Model, product360GroupName) into ConsistsOutOf
+!insert (product360Model, p360avgTemp) into ConsistsOutOf
+!insert (product360Model, p360customerName) into ConsistsOutOf
+!insert (product360Model, Product360) into SticksTo
+
+!create product360MetaData : MetaData
+!create product360DataVersion : ProductVersion
+!set product360DataVersion.versionNumber := 1
+!insert (product360MetaData, product360DataVersion) into Describes2
+!insert (product360MetaData, po4) into Describes2
+!insert (product360MetaData, product360Model) into Describes3
+
+!insert (Product360, product360MetaData) into Describes
+!insert (outputOperationD, Product360) into ConsistsOf
+!insert (dataProductD, Product360) into ProducesConsumesOwns
+
+-- Discovery
+!create discoveryPortD : DiscoveryPort
+!set discoveryPortD.name := 'Discovery Port for Product360'
+!insert (dataProductD, discoveryPortD) into InteractsThrough
+!create discoveryInterfaceD : ProvidedInterface
+!set discoveryInterfaceD.name := 'Interface for Product360 Discovery'
+!insert (discoveryPortD, discoveryInterfaceD) into Exposes
+!create discoveryOutputOperationD : Output
+!set discoveryOutputOperationD.name := 'Show Product360 Metadata'
+!insert (discoveryInterfaceD, discoveryOutputOperationD) into InterfaceProvides
+!create accessRuleD3 : AccessRule
+!set accessRuleD3.name := 'Discovery Role for Product360 Data'
+!insert (discoveryOutputOperationD, accessRuleD3) into RequiresToExecute
+!create costDiscoveryOperationD : Cost
+!set costDiscoveryOperationD.amount := 1
+!set costDiscoveryOperationD.unit := 'cent'
+!insert (discoveryOutputOperationD, costDiscoveryOperationD) into Incurs
+!insert (discoveryOutputOperationD, product360MetaData) into ConsistsOf
+!insert (dataProductD, product360MetaData) into ProducesConsumesOwns
+
+-- Data Product Offering
+!create RateLimitConstraintD : RateLimit
+!set RateLimitConstraintD.name := 'Rate Limiter'
+!set RateLimitConstraintD.rate := 1000
+!insert (dataProductD, RateLimitConstraintD) into ApplyToProduct
+
+-- Data Product Assurance
+!create obligationD : Obligation
+!set obligationD.name := 'Response Promise for Aggregated Product Data'
+!set obligationD.description := 'Respond to product queries within 1 working day.'
+!insert (dataProductD, obligationD) into HasObligations
+
+!create slaForDPD : SLA
+!create responseTimeForDPD : ResponseTime
+!set responseTimeForDPD.amountOfDays := 1
+!create supportLevelForDPD : SupportLevel
+!set supportLevelForDPD.levelOfSupport := 1
+!insert (slaForDPD, supportLevelForDPD) into SupportChannelsPartOfSLA
+!insert (slaForDPD, responseTimeForDPD) into SLAParametersPartOfSLA
+!insert (obligationD, slaForDPD) into Fullfills
+!insert (dataProductD, slaForDPD) into SLAPartOfProduct
+
+!create responseTimeCheckD : IntegrationTest
+!insert (dataProductD, responseTimeCheckD) into AutomaticTestsArePartOfProduct
+!insert (responseTimeCheckD, obligationD) into EnsuresAreMet
+!create product360DatasetCheck: UnitTest
+!insert (dataProductC, product360DatasetCheck) into AutomaticTestsArePartOfProduct
+!insert (Product360, product360DatasetCheck) into Guarantees
+
+
+-- Approve Data Product
+!openter dataProductD approveDataProduct() -- Data Steward approval
+!set dataProductD.approvals := 1
+!opexit
+!openter dataProductD approveDataProduct() -- Funder approval
+!set dataProductD.approvals := 2
+!opexit
+!openter dataProductD approveDataProduct() -- GovernanceBody approval
+!set dataProductD.approvals := 3
+!opexit
+!openter dataProductD accepted()
+!opexit
+!openter dataProductD accepted()
+!set dataProductD.approved := true
+!opexit
